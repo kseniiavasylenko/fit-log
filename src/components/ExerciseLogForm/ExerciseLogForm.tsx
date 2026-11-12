@@ -1,151 +1,166 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Search, X } from 'lucide-react';
-import styles from './ExerciseLogForm.module.scss';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Search } from 'lucide-react';
 import type { ExerciseLogData, SetItem } from '../../types';
+import styles from './ExerciseLogForm.module.scss';
 
 interface ExerciseLogFormProps {
   onSave: (data: ExerciseLogData) => void;
 }
 
-const EXERCISE_DATABASE = [
-  'Жим штанги лежачи',
-  'Жим гантелей на похилій лаві',
+// Базові популярні вправи для швидкого пошуку та підказок
+const DEFAULT_EXERCISES = [
+  'Жим лежачи',
   'Присідання зі штангою',
-  'Жим ногами в тренажері',
+  'Станова тяга',
+  'Жим гантелей сидячи',
+  'Підтягування',
+  'Віджимання на брусах',
+  'Зігинання рук на біцепс',
+  'Французький жим',
   'Тяга верхнього блоку',
-  'Тяга штанги в нахилі',
-  'Підйом штанги на біцепс',
-  'Французький жим зі штангою лежачи',
-  'Зігнуті розгинання рук на трицепс',
-  'Махи гантелями в сторони',
-  'Підтягування на перекладині',
-  'Гіперекстензія',
-  'Підйом на носки стоячи (литки)',
-  'Скручування на прес',
+  'Жим ногами в тренажері'
 ];
 
 export const ExerciseLogForm: React.FC<ExerciseLogFormProps> = ({ onSave }) => {
   const [exerciseName, setExerciseName] = useState('');
-  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [sets, setSets] = useState<SetItem[]>([
-    { id: '1', weight: '', reps: '' },
+    { id: '1', weight: '', reps: '' }
   ]);
-
+  
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Закриваємо випадаючий список при кліку за межами форми
+  // Збираємо унікальні вправи (базові + ті, що користувач вже колись зберіг)
+  const [allExercises, setAllExercises] = useState<string[]>(DEFAULT_EXERCISES);
+
+  useEffect(() => {
+    const user = localStorage.getItem('fitlog_current_user');
+    if (!user) return;
+    const savedLogs = localStorage.getItem(`fitlog_logs_${user}`);
+    if (savedLogs) {
+      const logs: ExerciseLogData[] = JSON.parse(savedLogs);
+      const userExercises = logs.map(log => log.exerciseName);
+      // Об'єднуємо дефолтні та збережені користувачем, прибираючи дублікати
+      const combined = Array.from(new Set([...DEFAULT_EXERCISES, ...userExercises]));
+      setAllExercises(combined);
+    }
+  }, []);
+
+  // Закриття випадаючого списку при кліку поза ним
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false);
+        setIsDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setExerciseName(value);
-
-    if (value.trim().length > 0) {
-      const matches = EXERCISE_DATABASE.filter((item) =>
-        item.toLowerCase().includes(value.toLowerCase())
-      );
-      setFilteredSuggestions(matches);
-      setShowSuggestions(true);
-    } else {
-      setFilteredSuggestions([]);
-      setShowSuggestions(false);
-    }
-  };
-
-  const handleSelectSuggestion = (name: string) => {
-    setExerciseName(name);
-    setShowSuggestions(false);
-  };
+  // Фільтрація варіантів на основі введеного тексту (реакція на кожну літеру)
+  const filteredSuggestions = allExercises.filter(name =>
+    name.toLowerCase().includes(exerciseName.toLowerCase())
+  );
 
   const handleAddSet = () => {
     setSets([
       ...sets,
-      { id: Date.now().toString(), weight: '', reps: '' },
+      { id: Date.now().toString(), weight: '', reps: '' }
     ]);
-  };
-
-  const handleRemoveSet = (id: string) => {
-    if (sets.length === 1) return;
-    setSets(sets.filter((set) => set.id !== id));
   };
 
   const handleSetChange = (id: string, field: 'weight' | 'reps', value: string) => {
     setSets(
-      sets.map((set) => (set.id === id ? { ...set, [field]: value } : set))
+      sets.map((set) =>
+        set.id === id ? { ...set, [field]: value === '' ? '' : Number(value) } : set
+      )
     );
+  };
+
+  const handleRemoveSet = (id: string) => {
+    if (sets.length > 1) {
+      setSets(sets.filter((set) => set.id !== id));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({ exerciseName, sets });
+    if (!exerciseName.trim()) return;
+
+    const formattedSets = sets.map(set => ({
+      ...set,
+      weight: set.weight === '' ? 0 : set.weight,
+      reps: set.reps === '' ? 0 : set.reps,
+    }));
+
+    onSave({
+      exerciseName,
+      sets: formattedSets,
+    });
+
     setExerciseName('');
     setSets([{ id: '1', weight: '', reps: '' }]);
+    setIsDropdownOpen(false);
   };
 
   return (
-    <form className={styles.exerciseLog} onSubmit={handleSubmit}>
-      <h2 className={styles.exerciseLog__title}>Записати вправу</h2>
+    <form onSubmit={handleSubmit} className={styles.form}>
+      <h2 className={styles.form__title}>Записати вправу</h2>
 
-      {/* Поле введення назви у стилі Google Search */}
-      <div className={styles.exerciseLog__field} ref={wrapperRef}>
+      {/* Поле введення з пошуком та інтерактивним автокомплітом */}
+      <div className={styles.form__field}>
         <label htmlFor="exerciseName">Назва вправи</label>
-        
-        <div className={styles.exerciseLog__searchBox}>
-          <div
-            className={`${styles.exerciseLog__inputWrapper} ${
-              showSuggestions && filteredSuggestions.length > 0
-                ? styles.exerciseLog__inputWrapper_expanded
-                : ''
-            }`}
-          >
-            <Search className={styles.exerciseLog__searchIcon} />
-            <input
-              id="exerciseName"
-              type="text"
-              autoComplete="off"
-              placeholder="Почніть вводити назву (напр. Жим)..."
-              value={exerciseName}
-              onChange={handleNameChange}
-              onFocus={() => {
-                if (exerciseName.trim().length > 0) setShowSuggestions(true);
-              }}
-              required
-            />
-            {exerciseName && (
-              <button
-                type="button"
-                onClick={() => {
-                  setExerciseName('');
-                  setFilteredSuggestions([]);
-                  setShowSuggestions(false);
-                }}
-                className={styles.exerciseLog__clearBtn}
-                title="Очистити"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+        <div className={styles.form__inputWrapper} ref={wrapperRef} style={{ position: 'relative' }}>
+          <Search size={18} />
+          <input
+            id="exerciseName"
+            type="text"
+            placeholder="Почніть вводити назву (напр. Жим)..."
+            value={exerciseName}
+            onChange={(e) => {
+              setExerciseName(e.target.value);
+              setIsDropdownOpen(true);
+            }}
+            onFocus={() => setIsDropdownOpen(true)}
+            required
+          />
 
-          {/* Випадаючий список підказок */}
-          {showSuggestions && filteredSuggestions.length > 0 && (
-            <ul className={styles.exerciseLog__suggestions}>
-              {filteredSuggestions.map((suggestion, index) => (
+          {/* Випадаючий список підказок, що фільтрується при введенні кожної літери */}
+          {isDropdownOpen && filteredSuggestions.length > 0 && (
+            <ul style={{
+              position: 'absolute',
+              top: 'calc(100% + 6px)',
+              left: 0,
+              right: 0,
+              background: 'var(--code-bg)',
+              border: '1px solid var(--border)',
+              borderRadius: '10px',
+              boxShadow: 'var(--shadow)',
+              listStyle: 'none',
+              margin: 0,
+              padding: '6px 0',
+              zIndex: 50,
+              maxHeight: '200px',
+              overflowY: 'auto'
+            }}>
+              {filteredSuggestions.map((name, index) => (
                 <li
                   key={index}
-                  onClick={() => handleSelectSuggestion(suggestion)}
+                  onClick={() => {
+                    setExerciseName(name);
+                    setIsDropdownOpen(false);
+                  }}
+                  style={{
+                    padding: '10px 16px',
+                    fontSize: '14px',
+                    color: 'var(--text-h)',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <Search />
-                  <span>{suggestion}</span>
+                  {name}
                 </li>
               ))}
             </ul>
@@ -153,59 +168,61 @@ export const ExerciseLogForm: React.FC<ExerciseLogFormProps> = ({ onSave }) => {
         </div>
       </div>
 
-      <div className={styles.exerciseLog__setsSection}>
-        <div className={styles.exerciseLog__setsHeader}>
+      <div className={styles.form__setsSection}>
+        <div className={styles.form__setsHeader}>
           <span>Підхід</span>
-          <span>Вага (кг)</span>
-          <span>Повторення</span>
-          <span></span>
+          <div style={{ display: 'flex', gap: '54px' }}>
+            <span>Вага (кг)</span>
+            <span>Повторення</span>
+          </div>
         </div>
 
-        {sets.map((set, index) => (
-          <div key={set.id} className={styles.exerciseLog__setRow}>
-            <span>#{index + 1}</span>
-            <input
-              type="number"
-              step="0.5"
-              placeholder="0"
-              value={set.weight}
-              onChange={(e) => handleSetChange(set.id, 'weight', e.target.value)}
-              required
-            />
-            <input
-              type="number"
-              placeholder="0"
-              value={set.reps}
-              onChange={(e) => handleSetChange(set.id, 'reps', e.target.value)}
-              required
-            />
-            {sets.length > 1 ? (
-              <button
-                type="button"
-                onClick={() => handleRemoveSet(set.id)}
-                className={styles.exerciseLog__removeSetBtn}
-                title="Видалити підхід"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            ) : (
-              <span></span>
-            )}
-          </div>
-        ))}
+        <div className={styles.form__setsList}>
+          {sets.map((set, index) => (
+            <div key={set.id} className={styles.form__setItem}>
+              <span className={styles.form__setBadge}>#{index + 1}</span>
 
-        <button
-          type="button"
-          onClick={handleAddSet}
-          className={styles.exerciseLog__addSetBtn}
-        >
-          <Plus className="w-4 h-4" /> Додати підхід
+              <div className={styles.form__inputsGroup}>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={set.weight}
+                  onChange={(e) => handleSetChange(set.id, 'weight', e.target.value)}
+                  min="0"
+                  step="0.5"
+                />
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={set.reps}
+                  onChange={(e) => handleSetChange(set.id, 'reps', e.target.value)}
+                  min="0"
+                />
+              </div>
+
+              {sets.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveSet(set.id)}
+                  className={styles.form__removeBtn}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <button type="button" onClick={handleAddSet} className={styles.form__addSetBtn}>
+          <Plus size={16} /> Додати підхід
         </button>
       </div>
 
-      <button type="submit" className={styles.exerciseLog__submitBtn}>
+      <button type="submit" className={styles.form__submitBtn}>
         Зберегти результати вправи
       </button>
     </form>
   );
 };
+
+export default ExerciseLogForm;

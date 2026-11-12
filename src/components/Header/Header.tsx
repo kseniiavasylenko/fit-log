@@ -1,129 +1,95 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { NavLink, Link } from 'react-router-dom';
-import { Dumbbell, LogOut, User as UserIcon } from 'lucide-react';
+import { Dumbbell } from 'lucide-react';
 import styles from './Header.module.scss';
 
 interface HeaderProps {
-  isAuthenticated: boolean;
-  userEmail?: string;
+  currentUser: string;
+  activeTab: 'add' | 'saved' | 'progress';
+  setActiveTab: (tab: 'add' | 'saved' | 'progress') => void;
   onLogout: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({
-  isAuthenticated,
-  userEmail,
-  onLogout,
-}) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+export const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout }) => {
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  // Закриваємо меню при кліку за його межами
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Отримуємо першу літеру пошти для аватара (наприклад, 'k')
-  const userInitial = userEmail ? userEmail.charAt(0).toUpperCase() : 'U';
+  const userInitial = currentUser.charAt(0).toUpperCase();
 
   return (
     <header className={styles.header}>
-      <div className={styles.header__container}>
-        <div className={styles.header__inner}>
-          
-          {/* Логотип */}
-          <Link to="/" className={styles.header__logo}>
-            <div className={styles.header__logoIcon}>
-              <Dumbbell className="w-5 h-5" />
-            </div>
-            <span className={styles.header__logoText}>
-              Fit<span>Log</span>
-            </span>
-          </Link>
-
-          {/* Навігація */}
-          {isAuthenticated && (
-            <nav className={styles.header__nav}>
-              <NavLink
-                to="/"
-                end
-                className={({ isActive }) =>
-                  `${styles.header__link} ${isActive ? styles.active : ''}`
-                }
-              >
-                Додати вправу
-              </NavLink>
-              
-              <NavLink
-                to="/saved"
-                className={({ isActive }) =>
-                  `${styles.header__link} ${isActive ? styles.active : ''}`
-                }
-              >
-                Мої збережені вправи
-              </NavLink>
-
-              <NavLink
-                to="/progress"
-                className={({ isActive }) =>
-                  `${styles.header__link} ${isActive ? styles.active : ''}`
-                }
-              >
-                Прогрес
-              </NavLink>
-            </nav>
-          )}
-
-          {/* Блок користувача / Кнопка входу */}
-          <div className={styles.header__actions}>
-            {isAuthenticated ? (
-              <div className={styles.profileContainer} ref={dropdownRef}>
-                {/* Кругла кнопка-аватар */}
-                <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className={styles.avatarBtn}
-                  title={userEmail}
-                >
-                  {userInitial}
-                </button>
-
-                {/* Випадаюче меню */}
-                {isDropdownOpen && (
-                  <div className={styles.dropdownMenu}>
-                    <div className={styles.dropdownHeader}>
-                      <UserIcon className={styles.dropdownUserIcon} />
-                      <span className={styles.dropdownEmail} title={userEmail}>
-                        {userEmail}
-                      </span>
-                    </div>
-                    <div className={styles.dropdownDivider} />
-                    <button
-                      onClick={() => {
-                        setIsDropdownOpen(false);
-                        onLogout();
-                      }}
-                      className={styles.dropdownLogoutBtn}
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Вийти</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link to="/auth" className={styles.header__loginBtn}>
-                Увійти
-              </Link>
-            )}
-          </div>
-
+      {/* Логотип */}
+      <div className={styles.header__logo} onClick={() => setActiveTab('add')}>
+        <div className={styles.header__logoIcon}>
+          <Dumbbell size={20} />
         </div>
+        <h1 className={styles.header__title}>
+          <span>Fit</span><span>Log</span>
+        </h1>
+      </div>
+
+      {/* Навігація */}
+      <nav className={styles.header__nav}>
+        <button
+          onClick={() => setActiveTab('add')}
+          className={`${styles.header__navBtn} ${activeTab === 'add' ? styles['header__navBtn--active'] : ''}`}
+        >
+          Додати вправу
+        </button>
+        <button
+          onClick={() => setActiveTab('saved')}
+          className={`${styles.header__navBtn} ${activeTab === 'saved' ? styles['header__navBtn--active'] : ''}`}
+        >
+          Мої збережені вправи
+        </button>
+        <button
+          onClick={() => setActiveTab('progress')}
+          className={`${styles.header__navBtn} ${activeTab === 'progress' ? styles['header__navBtn--active'] : ''}`}
+        >
+          Прогрес
+        </button>
+      </nav>
+
+      {/* Профіль / Аватарка */}
+      <div className={styles.header__profile} ref={menuRef}>
+        <div
+          className={styles.header__avatar}
+          onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+          title={currentUser}
+        >
+          {userInitial}
+          <span className={styles.header__avatarIndicator} />
+        </div>
+
+        {isProfileMenuOpen && (
+          <div className={styles.header__dropdown}>
+            <div className={styles.header__userInfo}>
+              <span>Авторизовано як</span>
+              <p>{currentUser}</p>
+            </div>
+            <button
+              onClick={() => {
+                setIsProfileMenuOpen(false);
+                onLogout();
+              }}
+              className={styles.header__logoutBtn}
+            >
+              Вийти з акаунта
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
 };
+
+export default Header;

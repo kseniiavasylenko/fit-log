@@ -1,83 +1,59 @@
+@import '../../styles/mixins.scss';
+
 .footer {
-  width: 100%;
-  border-top: 1px solid rgba(51, 65, 85, 0.4);
-  background-color: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(8px);
-  padding: 1.5rem 0;
-  margin-top: auto;
-}
-
-.footer__container {
-  max-width: 48rem;
-  margin: 0 auto;
-  padding: 0 1rem;
-}
-
-.footer__content {
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  padding: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
-  gap: 1rem;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: auto;
 
-  @media (min-width: 768px) {
-    flex-direction: row;
-    justify-content: space-between;
-    text-align: left;
+  @include mobile {
+    padding: 16px;
+    gap: 8px;
+  }
+
+  &__logo {
+    display: flex;
     align-items: center;
+    gap: 10px;
   }
-}
 
-.footer__brand {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
-
-.footer__logoIcon {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.5rem;
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-.footer__logoText {
-  font-weight: 700;
-  font-size: 1rem;
-  color: #ffffff;
-  letter-spacing: -0.025em;
-
-  span {
-    color: #818cf8;
+  &__logoIcon {
+    background: var(--accent);
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    box-shadow: var(--shadow);
   }
-}
 
-.footer__copy {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-  font-size: 0.8125rem;
-  color: #64748b;
-  text-align: center;
+  &__title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-h);
+    display: flex;
 
-  @media (min-width: 768px) {
-    justify-content: flex-end;
-    text-align: right;
+    span:last-child {
+      color: var(--accent);
+    }
   }
-}
 
-.footer__heart {
-  width: 0.875rem;
-  height: 0.875rem;
-  color: #f87171;
-  fill: #f87171;
-  flex-shrink: 0;
+  &__text {
+    font-size: 13px;
+    color: var(--text);
+    margin: 0;
+    text-align: center;
+
+    @include mobile {
+      font-size: 12px;
+    }
+  }
 }
