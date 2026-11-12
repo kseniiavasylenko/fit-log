@@ -1,6 +1,7 @@
 export interface SetItem {
-  weight: number;
-  reps: number;
+  id: string;
+  weight: number | '';
+  reps: number | '';
 }
 
 export interface ExerciseLogData {
