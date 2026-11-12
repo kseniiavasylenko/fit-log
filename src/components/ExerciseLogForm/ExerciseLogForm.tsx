@@ -1,23 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, Search, X } from 'lucide-react';
 import styles from './ExerciseLogForm.module.scss';
-
-interface SetItem {
-  id: string;
-  weight: string;
-  reps: string;
-}
-
-interface ExerciseLogData {
-  exerciseName: string;
-  sets: SetItem[];
-}
+import type { ExerciseLogData, SetItem } from '../../types';
 
 interface ExerciseLogFormProps {
   onSave: (data: ExerciseLogData) => void;
 }
 
-// Наша база вправ для підказок
 const EXERCISE_DATABASE = [
   'Жим штанги лежачи',
   'Жим гантелей на похилій лаві',
