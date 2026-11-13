@@ -1,31 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
 import { CategoryExerciseSelector } from './components/CategoryExerciseSelector/CategoryExerciseSelector';
 import type { ExerciseLogData } from './types';
-import { registerNewUser, completeRegistration, validateLogin } from './utils/authStorage';
+import { registerUserDirectly, validateLoginDirectly } from './utils/authStorage';
 import styles from './App.module.scss';
+import { Dumbbell } from 'lucide-react';
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<string>(() => {
     return localStorage.getItem('fitlog_current_user') || '';
   });
 
-  // Екрани авторизації: 'login' | 'register-form' | 'success-sent' | 'set-password'
-  const [authView, setAuthView] = useState<'login' | 'register-form' | 'success-sent' | 'set-password'>('login');
+  // Режим: 'login' або 'register'
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   // Поля форм
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  
-  const [regName, setRegName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-
-  const [newPassword, setNewPassword] = useState('');
-  const [activeToken, setActiveToken] = useState<string | null>(null);
-
+  const [emailInput, setEmailInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState(''); // Повідомлення про успішну реєстрацію
 
   const [activeTab, setActiveTab] = useState<'workout' | 'history' | 'progress'>('workout');
 
@@ -49,64 +43,42 @@ export function App() {
     return '';
   });
 
-  // Перевірка URL на наявність токену з листа (симуляція переходу за посиланням)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    if (token) {
-      setActiveToken(token);
-      setAuthView('set-password');
-    }
-  }, []);
-
-  // Обробка відправки форми реєстрації (Крок 1)
-  const handleRegisterRequest = (e: React.FormEvent) => {
+  // Обробка реєстрації (теперь перекидає на вкладку входу)
+  const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
-
-    const token = registerNewUser(regName.trim(), regEmail.trim());
-    if (!token) {
-      setErrorMsg('Користувач з такою поштою вже зареєстрований.');
-      return;
-    }
-
-    setSuccessMsg(`Лист успішно надіслано на ${regEmail}! Загляньте у консоль (F12), щоб отримати посилання для активації.`);
-    setAuthView('success-sent');
-  };
-
-  // Завершення реєстрації та створення пароля (Крок 2)
-  const handleSetPassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeToken) return;
-
-    const success = completeRegistration(activeToken, newPassword);
-    if (!success) {
-      setErrorMsg('Недійсний або прострочений токен активації.');
-      return;
-    }
-
-    alert('Реєстрація успішно завершена! Тепер ви можете увійти за допомогою пошти та пароля.');
-    window.history.replaceState({}, document.title, window.location.pathname);
-    setActiveToken(null);
-    setAuthView('login');
     setSuccessMsg('');
-  };
 
-  // Вхід у систему за поштою та паролем
-  const handleLoginSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg('');
-
-    const name = validateLogin(loginEmail.trim(), loginPassword);
-    if (!name) {
-      setErrorMsg('Невірна пошта, пароль або акаунт не активовано через пошту.');
+    const success = registerUserDirectly(emailInput, passwordInput);
+    if (!success) {
+      setErrorMsg('Користувач з такою поштою вже існує. Будь ласка, увійдіть.');
       return;
     }
 
-    localStorage.setItem('fitlog_current_user', name);
-    setCurrentUser(name);
+    // Успішно зареєстрували, очищаємо поля, перемикаємо на логін і виводимо успіх
+    setEmailInput('');
+    setPasswordInput('');
+    setAuthMode('login');
+    setSuccessMsg('Реєстрація успішна! Тепер увійдіть за допомогою вашої пошти та пароля.');
+  };
 
-    const data = localStorage.getItem(`fitlog_saved_exercises_${name}`);
+  // Обробка входу
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    const isValid = validateLoginDirectly(emailInput, passwordInput);
+    if (!isValid) {
+      setErrorMsg('Невірна пошта або пароль.');
+      return;
+    }
+
+    const email = emailInput.trim();
+    localStorage.setItem('fitlog_current_user', email);
+    setCurrentUser(email);
+
+    const data = localStorage.getItem(`fitlog_saved_exercises_${email}`);
     try {
       const parsed = data ? JSON.parse(data) : [];
       setSavedExercises(parsed);
@@ -145,119 +117,107 @@ export function App() {
   const handleLogout = () => {
     localStorage.removeItem('fitlog_current_user');
     setCurrentUser('');
-    setLoginEmail('');
-    setLoginPassword('');
-    setAuthView('login');
+    setEmailInput('');
+    setPasswordInput('');
+    setErrorMsg('');
+    setSuccessMsg('');
   };
 
-  // --- ЕКРАНИ АВТОРИЗАЦІЇ ---
+  // --- ЕКРАН АВТОРИЗАЦІЇ ---
   if (!currentUser) {
     return (
       <div className={styles.app}>
         <main className={styles.main} style={{ justifyContent: 'center', alignItems: 'center' }}>
           <div className={styles.card} style={{ width: '100%', maxWidth: '400px' }}>
             
-            {authView === 'login' && (
-              <div>
-                <h2 className={styles.title} style={{ textAlign: 'center', marginBottom: '8px' }}>Вхід у FitLog</h2>
-                <p style={{ fontSize: '13px', color: 'var(--text)', textAlign: 'center', marginBottom: '16px' }}>
-                  Введіть пошту та пароль для доступу.
-                </p>
-                <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <input
-                    type="email"
-                    placeholder="Ваша пошта..."
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
-                    required
-                  />
-                  <input
-                    type="password"
-                    placeholder="Ваш пароль..."
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
-                    required
-                  />
-                  {errorMsg && <span style={{ fontSize: '12px', color: '#ef4444', textAlign: 'center' }}>{errorMsg}</span>}
-                  <button type="submit" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '12px', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginTop: '6px' }}>
-                    Увійти
-                  </button>
-                  <button type="button" onClick={() => { setAuthView('register-form'); setErrorMsg(''); }} style={{ background: 'transparent', color: 'var(--accent)', border: 'none', cursor: 'pointer', fontSize: '13px', marginTop: '8px' }}>
-                    Немає акаунта? Зареєструватися →
-                  </button>
-                </form>
+            {/* Блок Логотипу */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px', gap: '8px' }}>
+              <div style={{ background: 'var(--accent)', padding: '10px', borderRadius: '14px', display: 'flex', color: '#fff', boxShadow: '0 4px 12px rgba(var(--accent-rgb), 0.3)' }}>
+                <Dumbbell size={26} />
+              </div>
+              <h1 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-h)', margin: 0, letterSpacing: '0.5px' }}>
+                Fit<span style={{ color: 'var(--accent)' }}>Log</span>
+              </h1>
+              <p style={{ fontSize: '13px', color: 'var(--text)', margin: 0 }}>
+                {authMode === 'login' ? 'Увійдіть у свій акаунт' : 'Створіть новий акаунт'}
+              </p>
+            </div>
+
+            {/* Вивід повідомлення про успішну реєстрацію */}
+            {successMsg && (
+              <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e', color: '#22c55e', padding: '10px 12px', borderRadius: '8px', fontSize: '12px', textAlign: 'center', marginBottom: '16px' }}>
+                {successMsg}
               </div>
             )}
 
-            {authView === 'register-form' && (
-              <div>
-                <h2 className={styles.title} style={{ textAlign: 'center', marginBottom: '8px' }}>Реєстрація</h2>
-                <p style={{ fontSize: '13px', color: 'var(--text)', textAlign: 'center', marginBottom: '16px' }}>
-                  Введіть ім'я та пошту. Ми надішлемо вам лист із посиланням.
-                </p>
-                <form onSubmit={handleRegisterRequest} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <input
-                    type="text"
-                    placeholder="Ваше ім'я..."
-                    value={regName}
-                    onChange={(e) => setRegName(e.target.value)}
-                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
-                    required
-                  />
-                  <input
-                    type="email"
-                    placeholder="Ваша пошта..."
-                    value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
-                    required
-                  />
-                  {errorMsg && <span style={{ fontSize: '12px', color: '#ef4444', textAlign: 'center' }}>{errorMsg}</span>}
-                  <button type="submit" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '12px', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginTop: '6px' }}>
-                    Продовжити
-                  </button>
-                  <button type="button" onClick={() => { setAuthView('login'); setErrorMsg(''); }} style={{ background: 'transparent', color: 'var(--text)', border: 'none', cursor: 'pointer', fontSize: '13px', marginTop: '8px' }}>
-                    ← Повернутися до входу
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {authView === 'success-sent' && (
-              <div style={{ textAlign: 'center' }}>
-                <h2 className={styles.title} style={{ marginBottom: '12px' }}>Перевірте пошту</h2>
-                <p style={{ fontSize: '13px', color: 'var(--text)', lineHeight: '1.5', marginBottom: '20px' }}>
-                  {successMsg}
-                </p>
-                <button type="button" onClick={() => setAuthView('login')} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 20px', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}>
-                  Перейти до входу
+            {authMode === 'login' ? (
+              <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <input
+                  type="email"
+                  placeholder="Ваша пошта..."
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="Ваш пароль..."
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
+                  required
+                />
+                {errorMsg && <span style={{ fontSize: '12px', color: '#ef4444', textAlign: 'center' }}>{errorMsg}</span>}
+                
+                <button type="submit" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '12px', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginTop: '6px' }}>
+                  Увійти
                 </button>
-              </div>
-            )}
 
-            {authView === 'set-password' && (
-              <div>
-                <h2 className={styles.title} style={{ textAlign: 'center', marginBottom: '8px' }}>Створення пароля</h2>
-                <p style={{ fontSize: '13px', color: 'var(--text)', textAlign: 'center', marginBottom: '16px' }}>
-                  Придумайте надійний пароль для завершення реєстрації.
-                </p>
-                <form onSubmit={handleSetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <input
-                    type="password"
-                    placeholder="Новий пароль..."
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
-                    required
-                  />
-                  {errorMsg && <span style={{ fontSize: '12px', color: '#ef4444', textAlign: 'center' }}>{errorMsg}</span>}
-                  <button type="submit" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '12px', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginTop: '6px' }}>
-                    Завершити реєстрацію
+                <div style={{ textAlign: 'center', marginTop: '14px' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('register'); setErrorMsg(''); setSuccessMsg(''); setEmailInput(''); setPasswordInput(''); }}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text)', fontSize: '13px', cursor: 'pointer' }}
+                  >
+                    Немає акаунта? <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Зареєструватися</span>
                   </button>
-                </form>
-              </div>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <input
+                  type="email"
+                  placeholder="Ваша пошта..."
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="Придумайте пароль..."
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
+                  required
+                />
+                {errorMsg && <span style={{ fontSize: '12px', color: '#ef4444', textAlign: 'center' }}>{errorMsg}</span>}
+                
+                <button type="submit" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '12px', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginTop: '6px' }}>
+                  Зареєструватися
+                </button>
+
+                <div style={{ textAlign: 'center', marginTop: '14px' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('login'); setErrorMsg(''); setSuccessMsg(''); setEmailInput(''); setPasswordInput(''); }}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text)', fontSize: '13px', cursor: 'pointer' }}
+                  >
+                    Вже є акаунт? <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Увійти</span>
+                  </button>
+                </div>
+              </form>
             )}
 
           </div>

@@ -3,20 +3,23 @@
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;           // Фіксуємо висоту на рівні екрана
+  max-height: 100vh;
   background-color: var(--bg);
   color: var(--text);
+  overflow: hidden;        // ПОВНІСТЮ ПРИБИРАЄМО ВЕРТИКАЛЬНИЙ СКРОЛ СТОРІНКИ
 }
 
 .main {
   flex: 1;
-  padding: 32px 16px;
+  padding: 24px 16px;
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  overflow-y: auto;        // Якщо вмісту багато (наприклад, довга історія), скролитиметься лише внутрішня частина, а не вся сторінка
 
   @include mobile {
-    padding: 16px 12px;
+    padding: 12px 8px;
   }
 }
 

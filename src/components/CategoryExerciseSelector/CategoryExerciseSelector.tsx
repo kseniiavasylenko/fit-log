@@ -174,7 +174,7 @@ export const CategoryExerciseSelector: React.FC<Props> = ({ onSave }) => {
             </button>
           ))}
 
-          {/* Кастомні вправи (з кнопкою видалення поруч) */}
+          {/* Кастомні вправи */}
           {categoryCustoms.map(ex => (
             <button
               type="button"
@@ -200,14 +200,14 @@ export const CategoryExerciseSelector: React.FC<Props> = ({ onSave }) => {
             </button>
           ))}
 
-          {/* Кнопка додавання своєї вправи */}
+          {/* Кнопка додавання своєї вправи (виправлено: без зайвого плюса) */}
           <button
             type="button"
             className={`${styles.form__exCard} ${styles['form__exCard--add']}`}
             onClick={() => setIsAddingCustom(true)}
           >
             <Plus size={16} />
-            <span>+ Своя вправа</span>
+            <span>Своя вправа</span>
           </button>
         </div>
 
