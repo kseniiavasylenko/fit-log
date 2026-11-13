@@ -12,7 +12,8 @@
   gap: 16px;
 
   @include mobile {
-    padding: 10px 16px;
+    padding: 10px 12px;
+    gap: 8px; // Зменшуємо проміжок між елементами на телефоні
   }
 }
 
@@ -24,6 +25,7 @@
   color: var(--text-h);
   font-weight: 600;
   font-size: 18px;
+  flex-shrink: 0; // Забороняємо логотипу стискатися
 
   &__icon {
     width: 36px;
@@ -37,6 +39,16 @@
     box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.3);
     flex-shrink: 0;
   }
+
+  @include mobile {
+    font-size: 16px;
+    gap: 6px;
+    
+    // На дуже вузьких екранах можна залишити тільки іконку логотипу або скоротити текст
+    span {
+      display: none; // Залишаємо лише іконку FitLog на телефонах, щоб звільнити місце
+    }
+  }
 }
 
 .nav {
@@ -46,19 +58,26 @@
   padding: 4px;
   border-radius: 12px;
   border: 1px solid var(--border);
+
+  @include mobile {
+    gap: 2px;
+    padding: 2px;
+    flex: 1; // Дозволяємо навігації адаптивно займати простір посередині
+    justify-content: center;
+  }
 }
 
 .navBtn {
   background: transparent;
   border: none;
-  outline: none; // ПРИБИРАЄМО РІЗКИЙ БІЛИЙ ФОКУС / ОБВОДКУ БРАУЗЕРА
+  outline: none;
   color: var(--text);
   padding: 6px 12px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.2s ease, background 0.2s ease; // Плавна зміна кольору без ривків обводки
+  transition: color 0.2s ease, background 0.2s ease;
   text-align: center;
   line-height: 1.25;
   display: flex;
@@ -66,7 +85,6 @@
   align-items: center;
   justify-content: center;
 
-  // Забороняємо браузеру ставити стандартний фокус при кліку мишкою
   &:focus, &:focus-visible {
     outline: none;
   }
@@ -82,12 +100,17 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     border: 1px solid var(--border);
   }
+
+  @include mobile {
+    font-size: 11px;
+    padding: 4px 8px; // Компактніші кнопки для мобільних
+  }
 }
 
 .userSection {
   display: flex;
   align-items: center;
-  flex-shrink: 0;
+  flex-shrink: 0; // ЗАБОРОНЯЄМО згортати або ховати блок користувача!
   position: relative;
 }
 
@@ -104,7 +127,7 @@
   font-size: 15px;
   border: 1px solid var(--accent);
   box-sizing: border-box;
-  outline: none; // Також прибираємо фокус із аватарки
+  outline: none;
   cursor: pointer;
   flex-shrink: 0;
   transition: all 0.2s ease;
@@ -115,6 +138,12 @@
 
   &:hover {
     background: rgba(var(--accent-rgb), 0.3);
+  }
+
+  @include mobile {
+    width: 34px;  // Трохи компактніший кружечок для телефонів
+    height: 34px;
+    font-size: 14px;
   }
 }
 
@@ -143,6 +172,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text-h);
+  word-break: break-all;
 }
 
 .dropdownDivider {

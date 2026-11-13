@@ -13,7 +13,6 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiv
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Закриття меню при кліку поза ним
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -62,7 +61,7 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiv
         </button>
       </nav>
 
-      {/* Профіль та випадаюче меню */}
+      {/* Профіль та випадаюче меню (Завжди видиме на всіх екранах) */}
       <div className={styles.userSection}>
         <div className={styles.userWrapper} ref={menuRef}>
           <button 
@@ -70,14 +69,14 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiv
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             title="Профіль"
           >
-            {currentUser.charAt(0).toUpperCase()}
+            {currentUser ? currentUser.charAt(0).toUpperCase() : 'U'}
           </button>
 
           {isMenuOpen && (
             <div className={styles.dropdownMenu}>
               <div className={styles.dropdownItemUser}>
                 <User size={14} />
-                <span>{currentUser}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser}</span>
               </div>
               <div className={styles.dropdownDivider} />
               <button className={styles.dropdownItemLogout} onClick={onLogout}>
