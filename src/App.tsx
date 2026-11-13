@@ -3,31 +3,120 @@ import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
 import { CategoryExerciseSelector } from './components/CategoryExerciseSelector/CategoryExerciseSelector';
 import type { ExerciseLogData } from './types';
+import { registerNewUser, completeRegistration, validateLogin, getAllUsers } from './utils/authStorage';
 import styles from './App.module.scss';
 
 export function App() {
-  const [currentUser, setCurrentUser] = useState<string>('Kseniia');
-  const [activeTab, setActiveTab] = useState<'workout' | 'history' | 'progress'>('workout');
-  const [savedExercises, setSavedExercises] = useState<ExerciseLogData[]>([]);
-  const [selectedProgressExercise, setSelectedProgressExercise] = useState<string>('');
+  const [currentUser, setCurrentUser] = useState<string>(() => {
+    return localStorage.getItem('fitlog_current_user') || '';
+  });
 
-  // Завантаження історії тренувань з localStorage при старті
-  useEffect(() => {
-    const user = localStorage.getItem('fitlog_current_user') || currentUser;
-    setCurrentUser(user);
+  // Екрани авторизації: 'login' | 'register-form' | 'success-sent' | 'set-password'
+  const [authView, setAuthView] = useState<'login' | 'register-form' | 'success-sent' | 'set-password'>('login');
+
+  // Поля форм
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+
+  const [newPassword, setNewPassword] = useState('');
+  const [activeToken, setActiveToken] = useState<string | null>(null);
+
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  const [activeTab, setActiveTab] = useState<'workout' | 'history' | 'progress'>('workout');
+
+  const [savedExercises, setSavedExercises] = useState<ExerciseLogData[]>(() => {
+    const user = localStorage.getItem('fitlog_current_user');
+    if (!user) return [];
+    const data = localStorage.getItem(`fitlog_saved_exercises_${user}`);
+    try { return data ? JSON.parse(data) : []; } catch { return []; }
+  });
+
+  const [selectedProgressExercise, setSelectedProgressExercise] = useState<string>(() => {
+    const user = localStorage.getItem('fitlog_current_user');
+    if (!user) return '';
     const data = localStorage.getItem(`fitlog_saved_exercises_${user}`);
     if (data) {
       try {
         const parsed: ExerciseLogData[] = JSON.parse(data);
-        setSavedExercises(parsed);
-        if (parsed.length > 0) {
-          setSelectedProgressExercise(parsed[0].exerciseName);
-        }
-      } catch (e) {
-        console.error('Помилка парсингу історії тренувань', e);
-      }
+        if (parsed.length > 0) return parsed[0].exerciseName;
+      } catch {}
+    }
+    return '';
+  });
+
+  // Перевірка URL на наявність токену з листа (симуляція переходу за посиланням)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      setActiveToken(token);
+      setAuthView('set-password');
     }
   }, []);
+
+  // Обробка відправки форми реєстрації (Крок 1)
+  const handleRegisterRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+
+    const token = registerNewUser(regName.trim(), regEmail.trim());
+    if (!token) {
+      setErrorMsg('Користувач з такою поштою вже зареєстрований.');
+      return;
+    }
+
+    setSuccessMsg(`Лист успішно надіслано на ${regEmail}! Загляньте у консоль (F12), щоб отримати посилання для активації.`);
+    setAuthView('success-sent');
+  };
+
+  // Завершення реєстрації та створення пароля (Крок 2)
+  const handleSetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeToken) return;
+
+    const success = completeRegistration(activeToken, newPassword);
+    if (!success) {
+      setErrorMsg('Недійсний або прострочений токен активації.');
+      return;
+    }
+
+    alert('Реєстрація успішно завершена! Тепер ви можете увійти за допомогою пошти та пароля.');
+    // Очищаємо URL від параметрів
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setActiveToken(null);
+    setAuthView('login');
+    setSuccessMsg('');
+  };
+
+  // Вхід у систему за поштою та паролем
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+
+    const name = validateLogin(loginEmail.trim(), loginPassword);
+    if (!name) {
+      setErrorMsg('Невірна пошта, пароль або акаунт не активовано через пошту.');
+      return;
+    }
+
+    localStorage.setItem('fitlog_current_user', name);
+    setCurrentUser(name);
+
+    // Завантажуємо дані тренувань юзера
+    const data = localStorage.getItem(`fitlog_saved_exercises_${name}`);
+    try {
+      const parsed = data ? JSON.parse(data) : [];
+      setSavedExercises(parsed);
+      if (parsed.length > 0) setSelectedProgressExercise(parsed[0].exerciseName);
+    } catch {
+      setSavedExercises([]);
+    }
+  };
 
   const handleSaveExercise = (data: { category: string; exerciseName: string; date: string; sets: { weight: number; reps: number }[] }) => {
     const existingIndex = savedExercises.findIndex(
@@ -35,22 +124,13 @@ export function App() {
     );
 
     let updatedList: ExerciseLogData[];
-
     if (existingIndex !== -1) {
       const existingItem = savedExercises[existingIndex];
       const mergedSets = [...existingItem.sets, ...data.sets];
-      const updatedItem: ExerciseLogData = {
-        ...existingItem,
-        sets: mergedSets
-      };
       updatedList = [...savedExercises];
-      updatedList[existingIndex] = updatedItem;
+      updatedList[existingIndex] = { ...existingItem, sets: mergedSets };
     } else {
-      const newEntry: ExerciseLogData = {
-        id: Date.now().toString(),
-        ...data
-      };
-      updatedList = [newEntry, ...savedExercises];
+      updatedList = [{ id: Date.now().toString(), ...data }, ...savedExercises];
     }
 
     setSavedExercises(updatedList);
@@ -66,34 +146,150 @@ export function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('fitlog_current_user');
-    window.location.reload();
+    setCurrentUser('');
+    setLoginEmail('');
+    setLoginPassword('');
+    setAuthView('login');
   };
 
-  // --- СТАТИСТИКА ТА ПРОГРЕС ---
-  const totalSetsCount = savedExercises.reduce((acc, item) => acc + item.sets.length, 0);
+  // --- ЕКРАНИ АВТОРИЗАЦІЇ ---
+  if (!currentUser) {
+    return (
+      <div className={styles.app}>
+        <main className={styles.main} style={{ justifyContent: 'center', alignItems: 'center' }}>
+          <div className={styles.card} style={{ width: '100%', maxWidth: '400px' }}>
+            
+            {/* 1. ЕКРАН ВХОДУ */}
+            {authView === 'login' && (
+              <div>
+                <h2 className={styles.title} style={{ textAlign: 'center', marginBottom: '8px' }}>Вхід у FitLog</h2>
+                <p style={{ fontSize: '13px', color: 'var(--text)', textAlign: 'center', marginBottom: '16px' }}>
+                  Введіть пошту та пароль для доступу.
+                </p>
+                <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <input
+                    type="email"
+                    placeholder="Ваша пошта..."
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
+                    required
+                  />
+                  <input
+                    type="password"
+                    placeholder="Ваш пароль..."
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
+                    required
+                  />
+                  {errorMsg && <span style={{ fontSize: '12px', color: '#ef4444', textAlign: 'center' }}>{errorMsg}</span>}
+                  <button type="submit" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '12px', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginTop: '6px' }}>
+                    Увійти
+                  </button>
+                  <button type="button" onClick={() => { setAuthView('register-form'); setErrorMsg(''); }} style={{ background: 'transparent', color: 'var(--accent)', border: 'none', cursor: 'pointer', fontSize: '13px', marginTop: '8px' }}>
+                    Немає акаунта? Зареєструватися →
+                  </button>
+                </form>
+              </div>
+            )}
 
-  // Унікальні назви вправ
+            {/* 2. ЕКРАН ЗАПИТУ НА РЕЄСТРАЦІЮ (Введення імені та пошти) */}
+            {authView === 'register-form' && (
+              <div>
+                <h2 className={styles.title} style={{ textAlign: 'center', marginBottom: '8px' }}>Реєстрація</h2>
+                <p style={{ fontSize: '13px', color: 'var(--text)', textAlign: 'center', marginBottom: '16px' }}>
+                  Введіть ім'я та пошту. Ми надішлемо вам лист із посиланням.
+                </p>
+                <form onSubmit={handleRegisterRequest} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <input
+                    type="text"
+                    placeholder="Ваше ім'я..."
+                    value={regName}
+                    onChange={(e) => setRegName(e.target.value)}
+                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
+                    required
+                  />
+                  <input
+                    type="email"
+                    placeholder="Ваша пошта..."
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
+                    required
+                  />
+                  {errorMsg && <span style={{ fontSize: '12px', color: '#ef4444', textAlign: 'center' }}>{errorMsg}</span>}
+                  <button type="submit" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '12px', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginTop: '6px' }}>
+                    Продовжити
+                  </button>
+                  <button type="button" onClick={() => { setAuthView('login'); setErrorMsg(''); }} style={{ background: 'transparent', color: 'var(--text)', border: 'none', cursor: 'pointer', fontSize: '13px', marginTop: '8px' }}>
+                    ← Повернутися до входу
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* 3. ПОВІДОМЛЕННЯ ПРО ВІДПРАВКУ ЛИСТА */}
+            {authView === 'success-sent' && (
+              <div style={{ textAlign: 'center' }}>
+                <h2 className={styles.title} style={{ marginBottom: '12px' }}>Перевірте пошту</h2>
+                <p style={{ fontSize: '13px', color: 'var(--text)', lineHeight: '1.5', marginBottom: '20px' }}>
+                  {successMsg}
+                </p>
+                <button type="button" onClick={() => setAuthView('login')} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 20px', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}>
+                  Перейти до входу
+                </button>
+              </div>
+            )}
+
+            {/* 4. ЕКРАН ВСТАНОВЛЕННЯ ПАРОЛЯ (Коли юзер "перейшов за посиланням з листа") */}
+            {authView === 'set-password' && (
+              <div>
+                <h2 className={styles.title} style={{ textAlign: 'center', marginBottom: '8px' }}>Створення пароля</h2>
+                <p style={{ fontSize: '13px', color: 'var(--text)', textAlign: 'center', marginBottom: '16px' }}>
+                  Придумайте надійний пароль для завершення реєстрації.
+                </p>
+                <form onSubmit={handleSetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <input
+                    type="password"
+                    placeholder="Новий пароль..."
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
+                    required
+                  />
+                  {errorMsg && <span style={{ fontSize: '12px', color: '#ef4444', textAlign: 'center' }}>{errorMsg}</span>}
+                  <button type="submit" style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '12px', fontWeight: '600', cursor: 'pointer', fontSize: '14px', marginTop: '6px' }}>
+                    Завершити реєстрацію
+                  </button>
+                </form>
+              </div>
+            )}
+
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // --- ОСНОВНИЙ ІНТЕРФЕЙС (для залогіненого юзера) ---
+  const totalSetsCount = savedExercises.reduce((acc, item) => acc + item.sets.length, 0);
   const uniqueExerciseNames = Array.from(new Set(savedExercises.map(item => item.exerciseName)));
 
-  // Дані для вибраної вправи (сортовані за хронологією)
   const currentExerciseName = selectedProgressExercise || uniqueExerciseNames[0];
   const exerciseProgressData = savedExercises
     .filter(item => item.exerciseName === currentExerciseName)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .map(item => {
       const maxWeight = Math.max(...item.sets.map(s => Number(s.weight) || 0), 0);
-      return {
-        date: item.date,
-        maxWeight,
-      };
+      return { date: item.date, maxWeight };
     });
 
-  // Абсолютний максимум для цієї вправи за весь час
   const overallMaxWeight = exerciseProgressData.length > 0 
     ? Math.max(...exerciseProgressData.map(i => i.maxWeight)) 
     : 0;
 
-  // Налаштування для SVG-графіка
   const chartHeight = 160;
   const chartWidth = 320;
   const padding = 30;
@@ -150,10 +346,7 @@ export function App() {
                         </div>
                         <div className={styles.exerciseMeta}>
                           <span className={styles.date}>{item.date}</span>
-                          <button 
-                            onClick={() => handleDeleteSaved(item.id)}
-                            className={styles.deleteBtn}
-                          >
+                          <button onClick={() => handleDeleteSaved(item.id)} className={styles.deleteBtn}>
                             Видалити
                           </button>
                         </div>
@@ -182,7 +375,6 @@ export function App() {
                 <p className={styles.empty}>Додайте тренування, щоб побачити графіки та прогрес ваги.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {/* Загальні показники */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div style={{ background: 'var(--bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
                       <span style={{ fontSize: '13px', color: 'var(--text)' }}>Всього підходів</span>
@@ -194,21 +386,12 @@ export function App() {
                     </div>
                   </div>
 
-                  {/* Вибір вправи */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <label style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text)' }}>Оберіть вправу для аналізу</label>
                     <select
                       value={currentExerciseName}
                       onChange={(e) => setSelectedProgressExercise(e.target.value)}
-                      style={{
-                        background: 'var(--bg)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '10px',
-                        padding: '10px 14px',
-                        color: 'var(--text-h)',
-                        fontSize: '14px',
-                        outline: 'none'
-                      }}
+                      style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 14px', color: 'var(--text-h)', fontSize: '14px', outline: 'none' }}
                     >
                       {uniqueExerciseNames.map(name => (
                         <option key={name} value={name}>{name}</option>
@@ -216,12 +399,10 @@ export function App() {
                     </select>
                   </div>
 
-                  {/* Графік зміни максимальної ваги */}
                   {exerciseProgressData.length > 0 && (
                     <div style={{ background: 'var(--bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                       <h3 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-h)', margin: '0' }}>Графік росту ваги: {currentExerciseName}</h3>
                       
-                      {/* SVG Графік */}
                       <div style={{ width: '100%', display: 'flex', justifyContent: 'center', background: 'var(--code-bg)', borderRadius: '8px', padding: '10px 0', border: '1px solid var(--border)' }}>
                         <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ width: '100%', height: '140px', overflow: 'visible' }}>
                           <line x1={padding} y1={chartHeight - padding} x2={chartWidth - padding} y2={chartHeight - padding} stroke="var(--border)" strokeWidth="1" />
@@ -240,45 +421,12 @@ export function App() {
 
                           {points.map((p, i) => (
                             <g key={i}>
-                              <circle
-                                cx={p.x}
-                                cy={p.y}
-                                r="5"
-                                fill="var(--accent)"
-                                stroke="var(--bg)"
-                                strokeWidth="2"
-                              />
-                              <text
-                                x={p.x}
-                                y={p.y - 10}
-                                fill="var(--text-h)"
-                                fontSize="11"
-                                textAnchor="middle"
-                                fontWeight="600"
-                              >
-                                {p.maxWeight}кг
-                              </text>
-                              <text
-                                x={p.x}
-                                y={chartHeight - 10}
-                                fill="var(--text)"
-                                fontSize="9"
-                                textAnchor="middle"
-                              >
-                                {p.date.slice(5)}
-                              </text>
+                              <circle cx={p.x} cy={p.y} r="5" fill="var(--accent)" stroke="var(--bg)" strokeWidth="2" />
+                              <text x={p.x} y={p.y - 10} fill="var(--text-h)" fontSize="11" textAnchor="middle" fontWeight="600">{p.maxWeight}кг</text>
+                              <text x={p.x} y={chartHeight - 10} fill="var(--text)" fontSize="9" textAnchor="middle">{p.date.slice(5)}</text>
                             </g>
                           ))}
                         </svg>
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {exerciseProgressData.map((item, idx) => (
-                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--code-bg)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
-                            <span style={{ color: 'var(--text)' }}>{item.date}</span>
-                            <span>Максимум: <b style={{ color: 'var(--accent)' }}>{item.maxWeight} кг</b></span>
-                          </div>
-                        ))}
                       </div>
                     </div>
                   )}
