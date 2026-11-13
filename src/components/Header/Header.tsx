@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Dumbbell } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Dumbbell, LogOut, User } from 'lucide-react';
 import styles from './Header.module.scss';
 
 interface HeaderProps {
@@ -10,83 +10,83 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout }) => {
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Закриття меню при кліку поза ним
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsProfileMenuOpen(false);
+        setIsMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
-  const userInitial = currentUser.charAt(0).toUpperCase();
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMenuOpen]);
 
   return (
     <header className={styles.header}>
       {/* Логотип */}
-      <div className={styles.header__logo} onClick={() => setActiveTab('add')}>
-        <div className={styles.header__logoIcon}>
+      <div className={styles.logo}>
+        <div className={styles.logo__icon}>
           <Dumbbell size={20} />
         </div>
-        <h1 className={styles.header__title}>
-          <span>Fit</span><span>Log</span>
-        </h1>
+        <span>FitLog</span>
       </div>
 
       {/* Навігація */}
-      <nav className={styles.header__nav}>
+      <nav className={styles.nav}>
         <button
+          className={`${styles.navBtn} ${activeTab === 'add' ? styles['navBtn--active'] : ''}`}
           onClick={() => setActiveTab('add')}
-          className={`${styles.header__navBtn} ${activeTab === 'add' ? styles['header__navBtn--active'] : ''}`}
         >
           Додати вправу
         </button>
         <button
+          className={`${styles.navBtn} ${activeTab === 'saved' ? styles['navBtn--active'] : ''}`}
           onClick={() => setActiveTab('saved')}
-          className={`${styles.header__navBtn} ${activeTab === 'saved' ? styles['header__navBtn--active'] : ''}`}
         >
-          Мої збережені вправи
+          Історія<br />тренувань
         </button>
         <button
+          className={`${styles.navBtn} ${activeTab === 'progress' ? styles['navBtn--active'] : ''}`}
           onClick={() => setActiveTab('progress')}
-          className={`${styles.header__navBtn} ${activeTab === 'progress' ? styles['header__navBtn--active'] : ''}`}
         >
           Прогрес
         </button>
       </nav>
 
-      {/* Профіль / Аватарка */}
-      <div className={styles.header__profile} ref={menuRef}>
-        <div
-          className={styles.header__avatar}
-          onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-          title={currentUser}
-        >
-          {userInitial}
-          <span className={styles.header__avatarIndicator} />
-        </div>
+      {/* Профіль та випадаюче меню */}
+      <div className={styles.userSection}>
+        <div className={styles.userWrapper} ref={menuRef}>
+          <button 
+            className={styles.userAvatar} 
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            title="Профіль"
+          >
+            {currentUser.charAt(0).toUpperCase()}
+          </button>
 
-        {isProfileMenuOpen && (
-          <div className={styles.header__dropdown}>
-            <div className={styles.header__userInfo}>
-              <span>Авторизовано як</span>
-              <p>{currentUser}</p>
+          {isMenuOpen && (
+            <div className={styles.dropdownMenu}>
+              <div className={styles.dropdownItemUser}>
+                <User size={14} />
+                <span>{currentUser}</span>
+              </div>
+              <div className={styles.dropdownDivider} />
+              <button className={styles.dropdownItemLogout} onClick={onLogout}>
+                <LogOut size={14} />
+                <span>Вийти</span>
+              </button>
             </div>
-            <button
-              onClick={() => {
-                setIsProfileMenuOpen(false);
-                onLogout();
-              }}
-              className={styles.header__logoutBtn}
-            >
-              Вийти з акаунта
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </header>
   );

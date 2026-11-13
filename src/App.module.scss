@@ -1,0 +1,181 @@
+@import './styles/mixins.scss';
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+.main {
+  flex: 1;
+  padding: 32px 16px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+
+  @include mobile {
+    padding: 16px 12px;
+  }
+}
+
+.container {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.card {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+  box-sizing: border-box;
+  animation: fadeInTab 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+
+  @include mobile {
+    padding: 16px;
+  }
+}
+
+@keyframes fadeInTab {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.empty {
+  font-size: 14px;
+  color: var(--text);
+  text-align: center;
+  padding: 20px 0;
+  margin: 0;
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.historyItem {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.historyHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+
+  @include mobile {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.exerciseInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.exerciseName {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.categoryBadge {
+  font-size: 11px;
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.exerciseMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.date {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.deleteBtn {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.2s;
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.1);
+  }
+}
+
+.setsTable {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setBadge {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--code-bg);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.setNumber {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.setValues {
+  color: var(--text-h);
+  font-size: 14px;
+
+  b {
+    color: var(--accent);
+  }
+}
