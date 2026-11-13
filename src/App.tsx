@@ -3,7 +3,7 @@ import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
 import { CategoryExerciseSelector } from './components/CategoryExerciseSelector/CategoryExerciseSelector';
 import type { ExerciseLogData } from './types';
-import { registerNewUser, completeRegistration, validateLogin, getAllUsers } from './utils/authStorage';
+import { registerNewUser, completeRegistration, validateLogin } from './utils/authStorage';
 import styles from './App.module.scss';
 
 export function App() {
@@ -86,7 +86,6 @@ export function App() {
     }
 
     alert('Реєстрація успішно завершена! Тепер ви можете увійти за допомогою пошти та пароля.');
-    // Очищаємо URL від параметрів
     window.history.replaceState({}, document.title, window.location.pathname);
     setActiveToken(null);
     setAuthView('login');
@@ -107,7 +106,6 @@ export function App() {
     localStorage.setItem('fitlog_current_user', name);
     setCurrentUser(name);
 
-    // Завантажуємо дані тренувань юзера
     const data = localStorage.getItem(`fitlog_saved_exercises_${name}`);
     try {
       const parsed = data ? JSON.parse(data) : [];
@@ -159,7 +157,6 @@ export function App() {
         <main className={styles.main} style={{ justifyContent: 'center', alignItems: 'center' }}>
           <div className={styles.card} style={{ width: '100%', maxWidth: '400px' }}>
             
-            {/* 1. ЕКРАН ВХОДУ */}
             {authView === 'login' && (
               <div>
                 <h2 className={styles.title} style={{ textAlign: 'center', marginBottom: '8px' }}>Вхід у FitLog</h2>
@@ -194,7 +191,6 @@ export function App() {
               </div>
             )}
 
-            {/* 2. ЕКРАН ЗАПИТУ НА РЕЄСТРАЦІЮ (Введення імені та пошти) */}
             {authView === 'register-form' && (
               <div>
                 <h2 className={styles.title} style={{ textAlign: 'center', marginBottom: '8px' }}>Реєстрація</h2>
@@ -229,7 +225,6 @@ export function App() {
               </div>
             )}
 
-            {/* 3. ПОВІДОМЛЕННЯ ПРО ВІДПРАВКУ ЛИСТА */}
             {authView === 'success-sent' && (
               <div style={{ textAlign: 'center' }}>
                 <h2 className={styles.title} style={{ marginBottom: '12px' }}>Перевірте пошту</h2>
@@ -242,7 +237,6 @@ export function App() {
               </div>
             )}
 
-            {/* 4. ЕКРАН ВСТАНОВЛЕННЯ ПАРОЛЯ (Коли юзер "перейшов за посиланням з листа") */}
             {authView === 'set-password' && (
               <div>
                 <h2 className={styles.title} style={{ textAlign: 'center', marginBottom: '8px' }}>Створення пароля</h2>
@@ -273,7 +267,7 @@ export function App() {
     );
   }
 
-  // --- ОСНОВНИЙ ІНТЕРФЕЙС (для залогіненого юзера) ---
+  // --- ОСНОВНИЙ ІНТЕРФЕЙС ---
   const totalSetsCount = savedExercises.reduce((acc, item) => acc + item.sets.length, 0);
   const uniqueExerciseNames = Array.from(new Set(savedExercises.map(item => item.exerciseName)));
 

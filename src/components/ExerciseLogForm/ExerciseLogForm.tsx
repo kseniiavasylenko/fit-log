@@ -1,228 +1,117 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Search } from 'lucide-react';
-import type { ExerciseLogData, SetItem } from '../../types';
+import React, { useState } from 'react';
 import styles from './ExerciseLogForm.module.scss';
 
 interface ExerciseLogFormProps {
-  onSave: (data: ExerciseLogData) => void;
+  category: string;
+  exerciseName: string;
+  onSave: (data: { category: string; exerciseName: string; date: string; sets: { weight: number; reps: number }[] }) => void;
+  onBack: () => void;
 }
 
-// Базові популярні вправи для швидкого пошуку та підказок
-const DEFAULT_EXERCISES = [
-  'Жим лежачи',
-  'Присідання зі штангою',
-  'Станова тяга',
-  'Жим гантелей сидячи',
-  'Підтягування',
-  'Віджимання на брусах',
-  'Зігинання рук на біцепс',
-  'Французький жим',
-  'Тяга верхнього блоку',
-  'Жим ногами в тренажері'
-];
-
-export const ExerciseLogForm: React.FC<ExerciseLogFormProps> = ({ onSave }) => {
-  const [exerciseName, setExerciseName] = useState('');
-  const [sets, setSets] = useState<SetItem[]>([
-    { id: '1', weight: '', reps: '' }
+export const ExerciseLogForm: React.FC<ExerciseLogFormProps> = ({ category, exerciseName, onSave, onBack }) => {
+  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [sets, setSets] = useState<{ weight: number | ''; reps: number | '' }[]>([
+    { weight: '', reps: '' }
   ]);
-  
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  // Збираємо унікальні вправи (базові + ті, що користувач вже колись зберіг)
-  const [allExercises, setAllExercises] = useState<string[]>(DEFAULT_EXERCISES);
-
-  useEffect(() => {
-    const user = localStorage.getItem('fitlog_current_user');
-    if (!user) return;
-    const savedLogs = localStorage.getItem(`fitlog_logs_${user}`);
-    if (savedLogs) {
-      const logs: ExerciseLogData[] = JSON.parse(savedLogs);
-      const userExercises = logs.map(log => log.exerciseName);
-      // Об'єднуємо дефолтні та збережені користувачем, прибираючи дублікати
-      const combined = Array.from(new Set([...DEFAULT_EXERCISES, ...userExercises]));
-      setAllExercises(combined);
-    }
-  }, []);
-
-  // Закриття випадаючого списку при кліку поза ним
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Фільтрація варіантів на основі введеного тексту (реакція на кожну літеру)
-  const filteredSuggestions = allExercises.filter(name =>
-    name.toLowerCase().includes(exerciseName.toLowerCase())
-  );
 
   const handleAddSet = () => {
-    setSets([
-      ...sets,
-      { id: Date.now().toString(), weight: '', reps: '' }
-    ]);
+    setSets([...sets, { weight: '', reps: '' }]);
   };
 
-  const handleSetChange = (id: string, field: 'weight' | 'reps', value: string) => {
-    setSets(
-      sets.map((set) =>
-        set.id === id ? { ...set, [field]: value === '' ? '' : Number(value) } : set
-      )
-    );
+  const handleSetChange = (index: number, field: 'weight' | 'reps', value: number | '') => {
+    const updated = [...sets];
+    updated[index][field] = value;
+    setSets(updated);
   };
 
-  const handleRemoveSet = (id: string) => {
-    if (sets.length > 1) {
-      setSets(sets.filter((set) => set.id !== id));
-    }
+  const handleRemoveSet = (index: number) => {
+    setSets(sets.filter((_, i) => i !== index));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!exerciseName.trim()) return;
+    const formattedSets = sets
+      .filter(s => s.weight !== '' && s.reps !== '')
+      .map(s => ({ weight: Number(s.weight), reps: Number(s.reps) }));
 
-    const formattedSets = sets.map(set => ({
-      ...set,
-      weight: set.weight === '' ? 0 : set.weight,
-      reps: set.reps === '' ? 0 : set.reps,
-    }));
+    if (formattedSets.length === 0) return;
 
     onSave({
+      category,
       exerciseName,
+      date,
       sets: formattedSets,
     });
-
-    setExerciseName('');
-    setSets([{ id: '1', weight: '', reps: '' }]);
-    setIsDropdownOpen(false);
   };
 
   return (
-    <form onSubmit={handleSubmit} className={styles.form}>
-      <h2 className={styles.form__title}>Записати вправу</h2>
-
-      {/* Поле введення з пошуком та інтерактивним автокомплітом */}
-      <div className={styles.form__field}>
-        <label htmlFor="exerciseName">Назва вправи</label>
-        <div className={styles.form__inputWrapper} ref={wrapperRef} style={{ position: 'relative' }}>
-          <Search size={18} />
-          <input
-            id="exerciseName"
-            type="text"
-            placeholder="Почніть вводити назву (напр. Жим)..."
-            value={exerciseName}
-            onChange={(e) => {
-              setExerciseName(e.target.value);
-              setIsDropdownOpen(true);
-            }}
-            onFocus={() => setIsDropdownOpen(true)}
-            required
-          />
-
-          {/* Випадаючий список підказок, що фільтрується при введенні кожної літери */}
-          {isDropdownOpen && filteredSuggestions.length > 0 && (
-            <ul style={{
-              position: 'absolute',
-              top: 'calc(100% + 6px)',
-              left: 0,
-              right: 0,
-              background: 'var(--code-bg)',
-              border: '1px solid var(--border)',
-              borderRadius: '10px',
-              boxShadow: 'var(--shadow)',
-              listStyle: 'none',
-              margin: 0,
-              padding: '6px 0',
-              zIndex: 50,
-              maxHeight: '200px',
-              overflowY: 'auto'
-            }}>
-              {filteredSuggestions.map((name, index) => (
-                <li
-                  key={index}
-                  onClick={() => {
-                    setExerciseName(name);
-                    setIsDropdownOpen(false);
-                  }}
-                  style={{
-                    padding: '10px 16px',
-                    fontSize: '14px',
-                    color: 'var(--text-h)',
-                    cursor: 'pointer',
-                    transition: 'background 0.2s'
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                >
-                  {name}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+    <div className={styles.formContainer}>
+      <div className={styles.header}>
+        <button type="button" onClick={onBack} className={styles.backBtn}>
+          ← Назад
+        </button>
+        <h2 className={styles.title}>{exerciseName}</h2>
       </div>
 
-      <div className={styles.form__setsSection}>
-        <div className={styles.form__setsHeader}>
-          <span>Підхід</span>
-          <div style={{ display: 'flex', gap: '54px' }}>
-            <span>Вага (кг)</span>
-            <span>Повторення</span>
-          </div>
+      <form onSubmit={handleSubmit} className={styles.form}>
+        <div className={styles.field}>
+          <label className={styles.label}>Дата тренування</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className={styles.input}
+            required
+          />
         </div>
 
-        <div className={styles.form__setsList}>
+        <div className={styles.setsHeader}>
+          <span>Підходи</span>
+          <button type="button" onClick={handleAddSet} className={styles.addSetBtn}>
+            + Додати підхід
+          </button>
+        </div>
+
+        <div className={styles.setsList}>
           {sets.map((set, index) => (
-            <div key={set.id} className={styles.form__setItem}>
-              <span className={styles.form__setBadge}>#{index + 1}</span>
-
-              <div className={styles.form__inputsGroup}>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={set.weight}
-                  onChange={(e) => handleSetChange(set.id, 'weight', e.target.value)}
-                  min="0"
-                  step="0.5"
-                />
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={set.reps}
-                  onChange={(e) => handleSetChange(set.id, 'reps', e.target.value)}
-                  min="0"
-                />
-              </div>
-
+            <div key={index} className={styles.setItem}>
+              <span className={styles.setNumber}>#{index + 1}</span>
+              <input
+                type="number"
+                placeholder="Вага (кг)"
+                value={set.weight}
+                onChange={(e) => handleSetChange(index, 'weight', e.target.value === '' ? '' : Number(e.target.value))}
+                className={styles.setInput}
+                min="0"
+                step="0.5"
+                required
+              />
+              <input
+                type="number"
+                placeholder="Повторення"
+                value={set.reps}
+                onChange={(e) => handleSetChange(index, 'reps', e.target.value === '' ? '' : Number(e.target.value))}
+                className={styles.setInput}
+                min="1"
+                required
+              />
               {sets.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => handleRemoveSet(set.id)}
-                  className={styles.form__removeBtn}
+                  onClick={() => handleRemoveSet(index)}
+                  className={styles.removeSetBtn}
                 >
-                  <Trash2 size={16} />
+                  ✕
                 </button>
               )}
             </div>
           ))}
         </div>
 
-        <button type="button" onClick={handleAddSet} className={styles.form__addSetBtn}>
-          <Plus size={16} /> Додати підхід
+        <button type="submit" className={styles.submitBtn}>
+          Зберегти тренування
         </button>
-      </div>
-
-      <button type="submit" className={styles.form__submitBtn}>
-        Зберегти результати вправи
-      </button>
-    </form>
+      </form>
+    </div>
   );
 };
-
-export default ExerciseLogForm;
